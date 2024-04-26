@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def fetch_barchart_data():
-    # Fields to be fetched from the database
+    # Fields(columns) to be fetched from the database
     fields = ['symbol', 'baseSymbol', 'expirationDate', 'strikePrice', 'moneyness', 'bidPrice', 'midpoint',
               'askPrice', 'lastPrice', 'priceChange', 'percentChange', 'volume',
               'openInterest', 'openInterestChange', 'delta', 'volatility', 'optionType',
@@ -36,6 +36,8 @@ def fetch_barchart_data():
         }
 
         # Retrieving the expiration dates for monthly and weekly options
+        # The following link was retrieved by inspecting page below:
+        # https://www.barchart.com/stocks/quotes/$VIX%7C20240821%7C28.00C/options?expiration=2024-05-01-w
         initial_table = 'https://www.barchart.com/proxies/core-api/v1/options-expirations/get?fields=expirationDate%2CexpirationType%2CdaysToExpiration%2CputVolume%2CcallVolume%2CputCallVolumeRatio%2CputOpenInterest%2CcallOpenInterest%2CputCallOpenInterestRatio%2CaverageVolatility%2CsymbolCode%2CsymbolType%2ClastPrice%2CdailyLastPrice&symbol=%24VIX&meta=field.shortName%2Cfield.type%2Cfield.description&page=1&limit=100&raw=1'
         response = s.get(initial_table, headers=headers)
         data = response.json()
@@ -43,6 +45,8 @@ def fetch_barchart_data():
         monthly_dates = set()
         weekly_dates = set()
 
+        # Extracting expiration dates for monthly and weekly options
+        # so that they can be used in the database requests
         for item in data['data']:
             expiration_date = item['expirationDate']
             expiration_type = item['expirationType']
@@ -55,6 +59,19 @@ def fetch_barchart_data():
         dates_urls = {'Monthly': [], 'Weekly': []}
 
         def database_url(baseSymbol, fields, expirationDate, orderBy, expirationType):
+            """
+            Generates a URL for querying the Barchart API based on the provided parameters.
+
+            Args:
+                baseSymbol (str): The base symbol for the options.
+                fields (List[str]): The fields to be included in the query.
+                expirationDate (str): The expiration date of the options in the format 'MM/DD/YY'.
+                orderBy (str): The field to order the results by.
+                expirationType (str): The type of expiration ('monthly' or 'weekly').
+
+            Returns:
+                str: The generated URL for querying the Barchart API.
+            """    
             base_url = 'https://www.barchart.com/proxies/core-api/v1/options/get'
             requested_fields = '%2C'.join(fields)
             link = f'{base_url}?baseSymbol={baseSymbol}&fields={requested_fields}&groupBy=optionType&expirationDate={expirationDate}&meta=field.shortName%2Cexpirations%2Cfield.description&orderBy={orderBy}&orderDir=asc&optionsOverview=true&expirationType={expirationType}&raw=1'
@@ -69,6 +86,13 @@ def fetch_barchart_data():
             dates_urls['Weekly'].append(database_url('$VIX', fields, date, 'strikePrice', 'weekly'))
 
         def fetch_data(urls, option_type):
+            """
+            Fetches data from the given URLs based on the specified option type 
+            and returns the aggregated option data.
+            :param urls: List of URLs to fetch data from.
+            :param option_type: The type of option to extract from the fetched data.
+            :return: List of option data extracted based on the provided option type.
+            """
             option_data = []
             for url in urls:
                 response = s.get(url, headers=headers)
@@ -86,6 +110,8 @@ def fetch_barchart_data():
 
         current_time = datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d %H:%M:%S %Z%z')
 
+        # Adding a column to each dataframe to indicate the time that the data was
+        # downloaded
         call_monthly_df['time'] = current_time
         put_monthly_df['time'] = current_time
         call_weekly_df['time'] = current_time
@@ -98,6 +124,13 @@ def fetch_barchart_data():
 
 
 def update_datasets():
+    """
+    Updates the datasets by fetching data from barchart and saving them to 
+    CSV files.
+    
+    Returns:
+        None
+    """
     monthly_vix, weekly_vix = fetch_barchart_data()
 
     monthly_vix_file_name = 'monthly_vix.csv'
@@ -107,8 +140,8 @@ def update_datasets():
     monthly_vix.to_csv(monthly_vix_file_name, index=False)
     weekly_vix.to_csv(weekly_vix_file_name, index=False)
 
-    print("Monthly dataset has been updated and saved to 'monthly_vix.csv'")
-    print("Weekly dataset has been updated and saved to 'weekly_vix.csv'")
+    print("Monthly dataset has been saved to 'monthly_vix.csv'")
+    print("Weekly dataset has been saved to 'weekly_vix.csv'")
 
 
 # Running the update function when the script is executed
