@@ -10,9 +10,6 @@ df = pd.read_csv('monthly_vix.csv')
 # Convert 'time' column to datetime format
 df['time'] = pd.to_datetime(df['time'])
 
-print(df['time'].unique())
-
-
 # Sidebar layout
 st.sidebar.title("Filters")
 selected_put_date = st.sidebar.selectbox("Put - Lookup Date", df['time'].dt.date.unique())
@@ -23,7 +20,6 @@ selected_call_strike = st.sidebar.selectbox("Call Strike Price", df['strikePrice
 # Filtered data for put and call
 filtered_put_df = df[(df['time'].dt.date == selected_put_date) & (df['strikePrice'] == selected_put_strike) & (df['optionType'] == 'Put')].sort_values('expirationDate')
 filtered_call_df = df[(df['time'].dt.date == selected_call_date) & (df['strikePrice'] == selected_call_strike) & (df['optionType'] == 'Call')].sort_values('expirationDate')
-
 
 # Put graph
 st.subheader(f'Put Prices and Volatility for {selected_put_date}, Strike: {selected_put_strike}, Type: Put')
